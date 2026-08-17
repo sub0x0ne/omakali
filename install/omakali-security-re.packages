@@ -1,0 +1,18 @@
+# Omakali Reverse Engineering & Binary Analysis Packages
+
+binwalk
+checksec
+cutter
+edb-debugger
+elfutils
+gdb
+ghidra
+hexedit
+ltrace
+nasm
+patchelf
+pwndbg
+radare2
+rizin
+strace
+yara

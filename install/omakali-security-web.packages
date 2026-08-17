@@ -1,0 +1,17 @@
+# Omakali Web Security Packages
+# Tools for web application security analysis, discovery, and testing.
+
+caido-cli
+cewl
+curl
+ffuf
+gobuster
+httpie
+mitmproxy
+nikto
+nuclei
+sqlmap
+sublist3r
+wpscan
+wfuzz
+zaproxy

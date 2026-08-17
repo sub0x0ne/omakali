@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# omarchy:summary=Install security tools by profile (core, web, wireless, re, full, blackarch, wordlists)
+# omarchy:group=sec
+# omarchy:name=install
+# omarchy:args=[core|web|wireless|re|full|blackarch|wordlists]
+# omarchy:examples=omakali sec install core | omakali sec install web | omakali sec install blackarch | omakali sec install wordlists
+# omarchy:requires-sudo=true
+
+set -euo pipefail
+
+PROFILE="${1:-}"
+
+BASE_DIR="${OMAKALI_PATH:-${OMARCHY_PATH:-/usr/share/omakali}}"
+if [[ ! -d "$BASE_DIR/install" ]]; then
+  BASE_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
+
+install_package_file() {
+  local pkg_file="$1"
+  local description="$2"
+
+  if [[ ! -f "$pkg_file" ]]; then
+    echo "Error: Package list not found at $pkg_file" >&2
+    return 1
+  fi
+
+  echo "Installing $description from $(basename "$pkg_file")..."
+  local packages=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%%#*}"
+    line="$(echo "$line" | xargs)"
+    [[ -z "$line" ]] && continue
+    packages+=("$line")
+  done < "$pkg_file"
+
+  if (( ${#packages[@]} > 0 )); then
+    if command -v yay >/dev/null 2>&1; then
+      yay -S --needed --noconfirm "${packages[@]}"
+    else
+      sudo pacman -S --needed --noconfirm "${packages[@]}"
+    fi
+  fi
+}
+
+show_usage() {
+  cat <<'EOF'
+Usage:
+  omakali sec install <profile>
+
+Profiles:
+  core        Core penetration testing tools (nmap, wireshark, masscan, sqlmap, john, hashcat, etc.)
+  web         Web application security testing suite (ffuf, gobuster, zaproxy, caido, nuclei, etc.)
+  wireless    Wireless & RF tools (aircrack-ng, kismet, reaver, wifite, etc.)
+  re          Reverse engineering & binary analysis (radare2, ghidra, gdb, pwndbg, cutter)
+  full        Complete pentest & red team suite
+  blackarch   Integrate BlackArch repository (2,800+ packages)
+  wordlists   Download SecLists and extract standard wordlists
+  all         Install full suite, BlackArch repo, and wordlists
+EOF
+}
+
+case "$PROFILE" in
+core)
+  install_package_file "$BASE_DIR/install/omakali-security-core.packages" "Core Security Suite"
+  bash "$BASE_DIR/install/helpers/setup-wireshark-permissions.sh" || true
+  ;;
+web)
+  install_package_file "$BASE_DIR/install/omakali-security-web.packages" "Web Security Suite"
+  ;;
+wireless)
+  install_package_file "$BASE_DIR/install/omakali-security-wireless.packages" "Wireless Security Suite"
+  ;;
+re)
+  install_package_file "$BASE_DIR/install/omakali-security-re.packages" "Reverse Engineering Suite"
+  ;;
+full)
+  install_package_file "$BASE_DIR/install/omakali-security-full.packages" "Full Security Suite"
+  bash "$BASE_DIR/install/helpers/setup-wireshark-permissions.sh" || true
+  bash "$BASE_DIR/install/helpers/setup-metasploit.sh" || true
+  ;;
+blackarch)
+  bash "$BASE_DIR/install/helpers/setup-blackarch.sh"
+  ;;
+wordlists)
+  bash "$BASE_DIR/install/helpers/setup-wordlists.sh"
+  ;;
+all)
+  bash "$BASE_DIR/install/helpers/setup-blackarch.sh" || true
+  install_package_file "$BASE_DIR/install/omakali-security-full.packages" "Full Security Suite"
+  bash "$BASE_DIR/install/helpers/setup-wordlists.sh" || true
+  bash "$BASE_DIR/install/helpers/setup-wireshark-permissions.sh" || true
+  bash "$BASE_DIR/install/helpers/setup-metasploit.sh" || true
+  ;;
+--help|-h|"")
+  show_usage
+  [[ -n "$PROFILE" ]] || exit 1
+  ;;
+*)
+  echo "Unknown security profile: $PROFILE" >&2
+  show_usage >&2
+  exit 1
+  ;;
+esac

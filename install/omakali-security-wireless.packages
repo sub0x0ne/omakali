@@ -1,0 +1,21 @@
+# Omakali Wireless Security Packages
+# Wireless, 802.11, Bluetooth, and SDR security tools.
+
+aircrack-ng
+bluez
+bluez-tools
+bluez-utils
+cowpatty
+crda
+hcxdumptool
+hcxtools
+iw
+kismet
+macchanger
+pixiewps
+reaver
+rfkill
+ubertooth
+wifite
+wireless-regdb
+wireless_tools

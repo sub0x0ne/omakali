@@ -1,0 +1,64 @@
+# Omakali Core Security Packages (Arch Linux Official Repositories)
+# Essential pentesting, network analysis, and reconnaissance tools.
+
+# Information Gathering & Recon
+amass
+bind
+dnsrecon
+fping
+masscan
+nmap
+theharvester
+traceroute
+whois
+
+# Web Application Security
+ffuf
+gobuster
+mitmproxy
+nikto
+sqlmap
+wfuzz
+
+# Password & Hash Cracking
+hashcat
+hydra
+john
+medusa
+
+# Sniffing & Network Forensics
+ettercap
+macchanger
+netcat
+nethogs
+ngrep
+openbsd-netcat
+proxychains-ng
+socat
+tcpdump
+termshark
+tshark
+wireshark-cli
+wireshark-qt
+
+# Wireless & Radio
+aircrack-ng
+iw
+wireless_tools
+
+# Reverse Engineering & Analysis
+binwalk
+gdb
+hexedit
+ltrace
+radare2
+strace
+
+# Tunneling & Pivoting
+chisel
+curl
+openvpn
+rdesktop
+sshpass
+stunnel
+wireguard-tools
