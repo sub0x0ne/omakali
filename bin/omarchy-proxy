@@ -1,0 +1,112 @@
+#!/bin/bash
+
+# omarchy:summary=Configure and toggle HTTP/HTTPS/SOCKS interception proxy routing
+# omarchy:group=proxy
+# omarchy:args=[on <burp|caido|tor|host:port>|off|toggle|status|env]
+# omarchy:examples=omakali proxy on burp | omakali proxy on tor | omakali proxy toggle | omakali proxy off | omakali proxy status
+
+set -euo pipefail
+
+PROXY_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omakali"
+PROXY_FILE="$PROXY_DIR/proxy"
+ENV_FILE="/tmp/omakali-proxy.env"
+
+mkdir -p "$PROXY_DIR"
+
+resolve_proxy_url() {
+  local preset="${1:-burp}"
+  case "$preset" in
+  burp|zap|caido)
+    echo "http://127.0.0.1:8080"
+    ;;
+  tor)
+    echo "socks5://127.0.0.1:9050"
+    ;;
+  http://*|https://*|socks5://*|socks4://*)
+    echo "$preset"
+    ;;
+  *:*)
+    echo "http://$preset"
+    ;;
+  *)
+    echo "http://127.0.0.1:$preset"
+    ;;
+  esac
+}
+
+write_env_file() {
+  local url="$1"
+  if [[ -n "$url" ]]; then
+    cat > "$ENV_FILE" <<EOF
+export HTTP_PROXY="$url"
+export HTTPS_PROXY="$url"
+export http_proxy="$url"
+export https_proxy="$url"
+export ALL_PROXY="$url"
+export all_proxy="$url"
+EOF
+  else
+    cat > "$ENV_FILE" <<EOF
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+EOF
+  fi
+}
+
+cmd="${1:-status}"
+
+case "$cmd" in
+on)
+  shift 2>/dev/null || true
+  target="${1:-burp}"
+  url=$(resolve_proxy_url "$target")
+  echo "$url" > "$PROXY_FILE"
+  write_env_file "$url"
+  echo "Interception proxy enabled: $url"
+  ;;
+off)
+  rm -f "$PROXY_FILE"
+  write_env_file ""
+  echo "Interception proxy disabled."
+  ;;
+toggle)
+  shift 2>/dev/null || true
+  target="${1:-burp}"
+  if [[ -f "$PROXY_FILE" ]]; then
+    rm -f "$PROXY_FILE"
+    write_env_file ""
+    echo "Interception proxy disabled."
+  else
+    url=$(resolve_proxy_url "$target")
+    echo "$url" > "$PROXY_FILE"
+    write_env_file "$url"
+    echo "Interception proxy enabled: $url"
+  fi
+  ;;
+status)
+  if [[ -f "$PROXY_FILE" ]]; then
+    url=$(cat "$PROXY_FILE")
+    if [[ "${2:-}" == "--json" ]]; then
+      printf '{"active":true,"url":"%s"}\n' "$url"
+    else
+      echo "Proxy: ON ($url)"
+    fi
+  else
+    if [[ "${2:-}" == "--json" ]]; then
+      printf '{"active":false,"url":""}\n'
+    else
+      echo "Proxy: OFF"
+    fi
+  fi
+  ;;
+env)
+  if [[ -f "$ENV_FILE" ]]; then
+    cat "$ENV_FILE"
+  else
+    echo "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy"
+  fi
+  ;;
+*)
+  echo "Usage: omakali proxy [on <preset|host:port>|off|toggle|status|env]" >&2
+  exit 1
+  ;;
+esac

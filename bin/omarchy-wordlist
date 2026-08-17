@@ -1,0 +1,91 @@
+#!/bin/bash
+
+# omarchy:summary=Search, locate, and manage penetration testing wordlists and SecLists
+# omarchy:group=wordlist
+# omarchy:args=[path <name>|find <pattern>|list]
+# omarchy:examples=omakali wordlist path rockyou | omakali wordlist find passwords | omakali wordlist list
+
+set -euo pipefail
+
+WORDLIST_DIR="/usr/share/wordlists"
+
+cmd="${1:-list}"
+
+resolve_path() {
+  local query="$1"
+  case "$query" in
+  rockyou|rockyou.txt)
+    for p in "$WORDLIST_DIR/rockyou.txt" "$WORDLIST_DIR/passwords/rockyou.txt" "/usr/share/dict/rockyou.txt"; do
+      if [[ -f "$p" ]]; then
+        echo "$p"
+        return 0
+      fi
+    done
+    ;;
+  common|common.txt)
+    for p in "$WORDLIST_DIR/seclists/Discovery/Web-Content/common.txt" "$WORDLIST_DIR/dirb/common.txt"; do
+      if [[ -f "$p" ]]; then
+        echo "$p"
+        return 0
+      fi
+    done
+    ;;
+  raft-small|raft-small-words)
+    echo "$WORDLIST_DIR/seclists/Discovery/Web-Content/raft-small-words.txt"
+    return 0
+    ;;
+  raft-medium|raft-medium-words)
+    echo "$WORDLIST_DIR/seclists/Discovery/Web-Content/raft-medium-words.txt"
+    return 0
+    ;;
+  subdomains|subdomains-top1mil)
+    echo "$WORDLIST_DIR/seclists/Discovery/DNS/subdomains-top1million-5000.txt"
+    return 0
+    ;;
+  esac
+
+  # Fallback: search by name
+  local match
+  match=$(find "$WORDLIST_DIR" -maxdepth 4 -iname "*$query*" -type f 2>/dev/null | head -n 1 || true)
+  if [[ -n "$match" ]]; then
+    echo "$match"
+    return 0
+  fi
+
+  echo "Error: Wordlist '$query' not found in $WORDLIST_DIR" >&2
+  return 1
+}
+
+case "$cmd" in
+path)
+  shift
+  query="${1:-}"
+  if [[ -z "$query" ]]; then
+    echo "Usage: omakali wordlist path <name>" >&2
+    exit 1
+  fi
+  resolve_path "$query"
+  ;;
+find|search)
+  shift
+  query="${1:-}"
+  if [[ -z "$query" ]]; then
+    echo "Usage: omakali wordlist find <pattern>" >&2
+    exit 1
+  fi
+  echo "Wordlists matching '$query':"
+  find "$WORDLIST_DIR" -maxdepth 4 -iname "*$query*" 2>/dev/null || echo "No matches found."
+  ;;
+list)
+  echo "Standard Wordlist Locations in $WORDLIST_DIR:"
+  if [[ -d "$WORDLIST_DIR" ]]; then
+    ls -lh "$WORDLIST_DIR"
+  else
+    echo "Directory $WORDLIST_DIR does not exist. Run 'omakali sec install wordlists' to initialize."
+  fi
+  ;;
+*)
+  echo "Usage: omakali wordlist [path <name>|find <pattern>|list]" >&2
+  exit 1
+  ;;
+esac

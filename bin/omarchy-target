@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# omarchy:summary=Manage engagement target IP, domain, and scope environment
+# omarchy:group=target
+# omarchy:args=[set <ip|host>|get|clear|status]
+# omarchy:examples=omakali target set 10.10.11.20 | omakali target get | omakali target status | omakali target clear
+
+set -euo pipefail
+
+TARGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omakali"
+TARGET_FILE="$TARGET_DIR/target"
+ENV_FILE="/tmp/omakali-target.env"
+
+mkdir -p "$TARGET_DIR"
+
+update_env_file() {
+  local target_val="$1"
+  if [[ -n "$target_val" ]]; then
+    cat > "$ENV_FILE" <<EOF
+export TARGET="$target_val"
+export IP="$target_val"
+export HOST="$target_val"
+EOF
+  else
+    rm -f "$ENV_FILE"
+  fi
+}
+
+cmd="${1:-}"
+
+case "$cmd" in
+set)
+  shift
+  target_val="${1:-}"
+  if [[ -z "$target_val" ]]; then
+    echo "Error: Target IP or hostname required." >&2
+    echo "Usage: omakali target set <ip|domain>" >&2
+    exit 1
+  fi
+  echo "$target_val" > "$TARGET_FILE"
+  update_env_file "$target_val"
+  echo "Target set to: $target_val"
+  ;;
+get)
+  if [[ -f "$TARGET_FILE" ]]; then
+    cat "$TARGET_FILE"
+  else
+    echo "No target set."
+  fi
+  ;;
+clear)
+  rm -f "$TARGET_FILE"
+  update_env_file ""
+  echo "Target cleared."
+  ;;
+status)
+  if [[ -f "$TARGET_FILE" ]]; then
+    target_val=$(cat "$TARGET_FILE")
+    if [[ "${2:-}" == "--json" ]]; then
+      printf '{"target":"%s","active":true}\n' "$target_val"
+    else
+      echo "Active Target: $target_val"
+    fi
+  else
+    if [[ "${2:-}" == "--json" ]]; then
+      printf '{"target":"","active":false}\n'
+    else
+      echo "No active target"
+    fi
+  fi
+  ;;
+"")
+  if [[ -f "$TARGET_FILE" ]]; then
+    cat "$TARGET_FILE"
+  else
+    echo "Usage: omakali target [set <ip|host>|get|clear|status]"
+  fi
+  ;;
+*)
+  # If first argument looks like an IP or hostname, treat as "set"
+  target_val="$cmd"
+  echo "$target_val" > "$TARGET_FILE"
+  update_env_file "$target_val"
+  echo "Target set to: $target_val"
+  ;;
+esac

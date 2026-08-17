@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# omarchy:summary=Launch interactive penetration testing tool picker grouped by Kali categories
+# omarchy:group=sec
+# omarchy:name=tools
+# omarchy:examples=omakali sec tools
+
+set -euo pipefail
+
+TOOLS_CATALOG=(
+  "01-Reconnaissance: nmap (Network exploration and port scanner)"
+  "01-Reconnaissance: masscan (Fast TCP port scanner)"
+  "01-Reconnaissance: amass (In-depth DNS enumeration and network mapping)"
+  "01-Reconnaissance: theHarvester (E-mail, subdomain and name harvester)"
+  "01-Reconnaissance: dnsrecon (DNS enumeration script)"
+  "02-Web Analysis: ffuf (Fast web fuzzer)"
+  "02-Web Analysis: gobuster (Directory/file & DNS busting tool)"
+  "02-Web Analysis: sqlmap (Automatic SQL injection tool)"
+  "02-Web Analysis: nikto (Web server security scanner)"
+  "02-Web Analysis: mitmproxy (Interactive TLS-capable intercepting HTTP proxy)"
+  "02-Web Analysis: zaproxy (OWASP ZAP Web App Scanner)"
+  "02-Web Analysis: caido (Lightweight web security auditor)"
+  "03-Vulnerability: nuclei (Fast vulnerability scanner using templates)"
+  "03-Vulnerability: exploitdb / searchsploit (Archive of public exploits)"
+  "04-Passwords & Cracking: john (John the Ripper password cracker)"
+  "04-Passwords & Cracking: hashcat (Advanced password recovery utility)"
+  "04-Passwords & Cracking: hydra (Fast network logon cracker)"
+  "05-Wireless: aircrack-ng (802.11 WEP/WPA-PSK key recovery program)"
+  "05-Wireless: kismet (Wireless network detector, sniffer, and IDS)"
+  "05-Wireless: wifite (Automated wireless attack tool)"
+  "06-Reverse Engineering: radare2 (Advanced commandline hexadecimal editor and disassembler)"
+  "06-Reverse Engineering: ghidra (NSA software reverse engineering framework)"
+  "06-Reverse Engineering: gdb (GNU Debugger with pwndbg/gef)"
+  "06-Reverse Engineering: binwalk (Firmware analysis tool)"
+  "07-Sniffing & Spoofing: wireshark (Network protocol analyzer)"
+  "07-Sniffing & Spoofing: tcpdump (Command-line packet analyzer)"
+  "07-Sniffing & Spoofing: ettercap (Comprehensive suite for man in the middle attacks)"
+  "07-Sniffing & Spoofing: responder (LLMNR, NBT-NS and MDNS poisoner)"
+  "08-Exploitation: metasploit (Metasploit Framework penetration testing suite)"
+  "08-Exploitation: netexec (Network execution and credential testing tool)"
+  "08-Exploitation: evil-winrm (WinRM shell for penetration testing)"
+  "09-Post Exploitation: chisel (TCP/UDP tunnel over HTTP via SSH)"
+  "09-Post Exploitation: bloodhound (Active Directory domain relationship mapping)"
+  "10-Forensics: autopsy (Digital forensics platform)"
+  "10-Forensics: volatility3 (Memory forensics framework)"
+  "10-Forensics: foremost (File recovery based on headers and footers)"
+)
+
+select_tool() {
+  if command -v fzf >/dev/null 2>&1; then
+    printf '%s\n' "${TOOLS_CATALOG[@]}" | fzf --prompt="Select Security Tool > " --height=60% --reverse
+  else
+    printf '%s\n' "${TOOLS_CATALOG[@]}"
+  fi
+}
+
+selected=$(select_tool)
+
+if [[ -n "$selected" ]]; then
+  # Extract tool binary name
+  tool_part="${selected#*: }"
+  tool_bin="${tool_part%% *}"
+
+  echo "Selected tool: $tool_bin"
+  if command -v "$tool_bin" >/dev/null 2>&1; then
+    exec "$tool_bin" --help
+  else
+    echo "Tool '$tool_bin' is not installed."
+    echo "To install it, run: omakali sec install <profile>"
+  fi
+fi

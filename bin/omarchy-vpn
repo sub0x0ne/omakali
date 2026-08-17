@@ -1,0 +1,144 @@
+#!/bin/bash
+
+# omarchy:summary=Manage OpenVPN and WireGuard lab connections (HTB, THM, Proving Grounds)
+# omarchy:group=vpn
+# omarchy:args=[connect <profile>|disconnect|status|list|ip]
+# omarchy:examples=omakali vpn connect htb | omakali vpn disconnect | omakali vpn status | omakali vpn ip | omakali vpn list
+
+set -euo pipefail
+
+VPN_DIRS=(
+  "${XDG_CONFIG_HOME:-$HOME/.config}/omakali/vpn"
+  "$HOME/vpn"
+  "$HOME/VPN"
+  "/etc/openvpn/client"
+)
+
+PID_FILE="/tmp/omakali-vpn.pid"
+
+find_vpn_profile() {
+  local name="$1"
+  for dir in "${VPN_DIRS[@]}"; do
+    [[ -d "$dir" ]] || continue
+    for ext in ovpn conf; do
+      if [[ -f "$dir/$name.$ext" ]]; then
+        echo "$dir/$name.$ext"
+        return 0
+      elif [[ -f "$dir/$name" ]]; then
+        echo "$dir/$name"
+        return 0
+      fi
+    done
+  done
+  return 1
+}
+
+get_vpn_ip() {
+  local ip=""
+  for iface in tun0 tun1 tap0 tap1 wg0 wg-quick; do
+    if ip addr show dev "$iface" >/dev/null 2>&1; then
+      ip=$(ip -4 addr show dev "$iface" | awk '/inet / {print $2}' | cut -d/ -f1 | head -n 1)
+      if [[ -n "$ip" ]]; then
+        echo "$ip"
+        return 0
+      fi
+    fi
+  done
+  return 1
+}
+
+cmd="${1:-status}"
+
+case "$cmd" in
+list)
+  echo "Available VPN Profiles:"
+  found=0
+  for dir in "${VPN_DIRS[@]}"; do
+    [[ -d "$dir" ]] || continue
+    for file in "$dir"/*.ovpn "$dir"/*.conf; do
+      [[ -f "$file" ]] || continue
+      profile_name="$(basename "$file")"
+      profile_name="${profile_name%.*}"
+      echo "  - $profile_name ($file)"
+      found=1
+    done
+  done
+  if [[ $found -eq 0 ]]; then
+    echo "  (No .ovpn or .conf profiles found in ~/.config/omakali/vpn or ~/vpn)"
+  fi
+  ;;
+connect)
+  shift
+  profile="${1:-}"
+  if [[ -z "$profile" ]]; then
+    echo "Error: VPN profile name required." >&2
+    echo "Usage: omakali vpn connect <profile>" >&2
+    exit 1
+  fi
+  file_path=$(find_vpn_profile "$profile" || true)
+  if [[ -z "$file_path" ]]; then
+    echo "Error: VPN profile '$profile' not found in search paths." >&2
+    exit 1
+  fi
+
+  echo "Connecting to VPN using $file_path..."
+  if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+    echo "Stopping existing VPN connection..."
+    sudo kill "$(cat "$PID_FILE")" 2>/dev/null || true
+    rm -f "$PID_FILE"
+    sleep 1
+  fi
+
+  if [[ "$file_path" == *.conf ]] && command -v wg-quick >/dev/null 2>&1; then
+    sudo wg-quick up "$file_path"
+  else
+    sudo openvpn --config "$file_path" --daemon omakali-vpn --writepid "$PID_FILE"
+    echo "OpenVPN started in background. Waiting for connection..."
+    for _ in {1..10}; do
+      sleep 1
+      if vpn_ip=$(get_vpn_ip); then
+        echo "Connected! VPN IP: $vpn_ip"
+        exit 0
+      fi
+    done
+    echo "VPN started (check 'omakali vpn status' for connection state)."
+  fi
+  ;;
+disconnect)
+  echo "Disconnecting VPN..."
+  if [[ -f "$PID_FILE" ]]; then
+    pid=$(cat "$PID_FILE")
+    sudo kill "$pid" 2>/dev/null || true
+    rm -f "$PID_FILE"
+  fi
+  sudo pkill -f "openvpn.*omakali-vpn" 2>/dev/null || true
+  echo "VPN disconnected."
+  ;;
+ip)
+  if vpn_ip=$(get_vpn_ip); then
+    echo "$vpn_ip"
+  else
+    echo "No active VPN interface found." >&2
+    exit 1
+  fi
+  ;;
+status)
+  if vpn_ip=$(get_vpn_ip); then
+    if [[ "${2:-}" == "--json" ]]; then
+      printf '{"connected":true,"ip":"%s"}\n' "$vpn_ip"
+    else
+      echo "VPN: Connected ($vpn_ip)"
+    fi
+  else
+    if [[ "${2:-}" == "--json" ]]; then
+      printf '{"connected":false,"ip":""}\n'
+    else
+      echo "VPN: Disconnected"
+    fi
+  fi
+  ;;
+*)
+  echo "Usage: omakali vpn [connect <profile>|disconnect|status|list|ip]" >&2
+  exit 1
+  ;;
+esac
