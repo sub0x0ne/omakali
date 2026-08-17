@@ -1,27 +1,34 @@
-# Single source of truth for OMARCHY_PATH + PATH adjustments. Sourced by:
-#   /etc/profile.d/omarchy.sh                 (system login shells)
+# Single source of truth for OMAKALI_PATH / OMARCHY_PATH + PATH adjustments. Sourced by:
+#   /etc/profile.d/omakali.sh, /etc/profile.d/omarchy.sh (system login shells)
 #   /etc/skel/.bashrc                         (interactive shells)
 #   /usr/share/uwsm/env.d/10-omarchy          (Hyprland session via uwsm)
 #   /usr/share/omarchy/default/bash/envs      (bash rc chain; SSH/non-login)
 
-# /etc/omarchy.conf is written by omarchy-dev-link and reset by
-# omarchy-dev-unlink. When absent, force the packaged default instead of
-# preserving a stale inherited value.
-if [ -f /etc/omarchy.conf ]; then
+if [ -f /etc/omakali.conf ]; then
+  . /etc/omakali.conf
+  : "${OMAKALI_PATH:=/usr/share/omakali}"
+  : "${OMARCHY_PATH:=$OMAKALI_PATH}"
+elif [ -f /etc/omarchy.conf ]; then
   . /etc/omarchy.conf
   : "${OMARCHY_PATH:=/usr/share/omarchy}"
+  : "${OMAKALI_PATH:=$OMARCHY_PATH}"
 else
+  OMAKALI_PATH=/usr/share/omakali
   OMARCHY_PATH=/usr/share/omarchy
 fi
-export OMARCHY_PATH
+export OMAKALI_PATH OMARCHY_PATH
 
-# Only prepend in dev-link mode. On a production install, the binaries are
-# already on PATH as /usr/bin/omarchy-* via the omarchy package — prepending
-# /usr/share/omarchy/bin would just be noise.
-if [ "$OMARCHY_PATH" != /usr/share/omarchy ]; then
+# Only prepend in dev-link mode.
+if [ "$OMARCHY_PATH" != /usr/share/omarchy ] && [ -d "${OMARCHY_PATH%/}/bin" ]; then
   case ":$PATH:" in
     *":${OMARCHY_PATH%/}/bin:"*) ;;
     *) PATH="${OMARCHY_PATH%/}/bin${PATH:+:$PATH}" ;;
+  esac
+fi
+if [ "$OMAKALI_PATH" != /usr/share/omakali ] && [ -d "${OMAKALI_PATH%/}/bin" ]; then
+  case ":$PATH:" in
+    *":${OMAKALI_PATH%/}/bin:"*) ;;
+    *) PATH="${OMAKALI_PATH%/}/bin${PATH:+:$PATH}" ;;
   esac
 fi
 

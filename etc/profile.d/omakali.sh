@@ -1,0 +1,1 @@
+[ -r /usr/share/omakali/default/bash/env-bootstrap ] && . /usr/share/omakali/default/bash/env-bootstrap || [ -r /usr/share/omarchy/default/bash/env-bootstrap ] && . /usr/share/omarchy/default/bash/env-bootstrap
