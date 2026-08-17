@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# omarchy:summary=Show current pentesting environment state (Target, VPN IP, Proxy)
+# omarchy:group=sec
+# omarchy:name=status
+# omarchy:args=[--json|--bar]
+# omarchy:examples=omakali sec status | omakali sec status --json | omakali sec status --bar
+
+set -euo pipefail
+
+TARGET_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/omakali/target"
+PROXY_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/omakali/proxy"
+
+target="None"
+if [[ -f "$TARGET_FILE" ]]; then
+  target=$(cat "$TARGET_FILE")
+fi
+
+proxy="OFF"
+if [[ -f "$PROXY_FILE" ]]; then
+  proxy="ON ($(cat "$PROXY_FILE"))"
+fi
+
+vpn_ip=""
+for iface in tun0 tun1 tap0 tap1 wg0; do
+  if ip addr show dev "$iface" >/dev/null 2>&1; then
+    vpn_ip=$(ip -4 addr show dev "$iface" | awk '/inet / {print $2}' | cut -d/ -f1 | head -n 1)
+    [[ -n "$vpn_ip" ]] && break
+  fi
+done
+
+mode="${1:-}"
+
+if [[ "$mode" == "--json" ]]; then
+  printf '{"target":"%s","proxy":"%s","vpn_ip":"%s"}\n' "$target" "$proxy" "$vpn_ip"
+elif [[ "$mode" == "--bar" ]]; then
+  # Compact format for Waybar / top bar / terminal prompt
+  parts=()
+  [[ -n "$vpn_ip" ]] && parts+=("VPN: $vpn_ip")
+  [[ "$target" != "None" ]] && parts+=("Target: $target")
+  [[ "$proxy" != "OFF" ]] && parts+=("Proxy: ON")
+  if (( ${#parts[@]} > 0 )); then
+    (IFS=" | "; echo "${parts[*]}")
+  else
+    echo "Omakali Ready"
+  fi
+else
+  echo "=== Omakali Pentesting Status ==="
+  echo "Target   : $target"
+  echo "VPN IP   : ${vpn_ip:-Disconnected}"
+  echo "Proxy    : $proxy"
+fi
